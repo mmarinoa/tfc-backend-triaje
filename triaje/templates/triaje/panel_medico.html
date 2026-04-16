@@ -6,15 +6,36 @@
 </head>
 <body>
     <h1>Panel médico</h1>
-    <ul>
-        {% for consulta in consultas %}
-            <li>
-                <strong>{{ consulta.paciente.nombre_completo }}</strong> - {{ consulta.motivo }}
-                <br>
-                <em>Estado:</em> {{ consulta.estado }}
-                <em>Prioridad:</em> {{ consulta.prioridad_ia }}
-            </li>
-        {% endfor %}
-    </ul>
+
+    <h2>Listado de pacientes</h2>
+
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Orden</th>
+                <th>Paciente</th>
+                <th>DNI</th>
+                <th>Motivo</th>
+                <th>Estado</th>
+                <th>Prioridad IA</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for consulta in consultas %}
+            <tr>
+                <td>{{ consulta.orden_manual }}</td>
+                <td>{{ consulta.paciente.nombre_completo }}</td>
+                <td>{{ consulta.paciente.dni }}</td>
+                <td>{{ consulta.motivo }}</td>
+                <td>{{ consulta.estado }}</td>
+                <td>{{ consulta.prioridad_ia }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6">No hay consultas registradas.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </body>
 </html>
