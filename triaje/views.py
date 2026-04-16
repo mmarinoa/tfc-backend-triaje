@@ -127,3 +127,8 @@ def consulta_detail_view(request, consulta_id):
         return JsonResponse({'message': 'Consulta eliminada correctamente'}, status=200)
 
     return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+
+def panel_medico_view(request):
+    consultas = Consulta.objects.select_related('paciente', 'categoria').order_by('orden_manual', 'prioridad_ia', 'fecha_creacion')
+    return render(request, 'triaje/panel_medico.html', {'consultas': consultas})

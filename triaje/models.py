@@ -38,6 +38,7 @@ class Consulta(models.Model):
     estado = models.CharField(max_length=20, choices=ESTADOS, default='pendiente')
     prioridad_ia = models.IntegerField(null=True, blank=True)
     observaciones = models.TextField(blank=True, default='')
+    orden_manual = models.IntegerField(default=0)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_actualizacion = models.DateTimeField(auto_now=True)
 
