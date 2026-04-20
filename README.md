@@ -8,7 +8,8 @@ Este backend se encarga de:
 - almacenar consultas médicas
 - exponer una API REST propia
 - servir de base para la priorización por triaje
-- centralizar los datos que consumirá la app Android y, si se implementa, el panel del médico
+- centralizar los datos que consumirá la app Android 
+- panel para que el médico consulte sus pacientes
 
 ---
 
@@ -18,6 +19,7 @@ Este backend se encarga de:
 - **Django**
 - **SQLite**
 - **Git / GitHub**
+-  **HTML y CSS**
 
 ---
 
