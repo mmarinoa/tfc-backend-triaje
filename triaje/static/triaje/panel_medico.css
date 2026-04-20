@@ -40,3 +40,22 @@ body {
     border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
+
+main h2 {
+    color: #34495e;
+    font-size: 1.4rem;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+}
+
+section {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse; 
+    margin-top: 10px;
+    background-color: white;
+}
