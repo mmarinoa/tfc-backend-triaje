@@ -56,8 +56,10 @@ section {
 table {
     width: 100%;
     border-collapse: collapse; 
+    border-radius: 8px 8px 0 0;
     margin-top: 10px;
     background-color: white;
+    overflow: hidden;
 }
 
 table thead {
@@ -86,6 +88,14 @@ table td:last-child {
     color: #e74c3c;
 }
 
+table td[colspan="6"] {
+    text-align: center;
+    padding: 40px;
+    color: #95a5a6;
+    font-style: italic;
+    background-color: #ffffff;
+}
+
 table tbody tr:nth-child(even) {
     background-color: #f8f9fa;
 }
@@ -99,6 +109,8 @@ td {
     vertical-align: middle;
 }
 
+
+
 .badge {
     padding: 4px 8px;
     border-radius: 12px;
@@ -106,4 +118,8 @@ td {
     font-weight: bold;
     text-transform: uppercase;
     background-color: #eee;
+}
+
+.contenedor {
+    border-top: 5px solid #2c3e50;
 }
