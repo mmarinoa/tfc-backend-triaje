@@ -17,7 +17,7 @@
             <section>
                 <h2>Consultas registradas</h2>
 
-                <table border="1">
+                <table>
                     <thead>
                         <tr>
                             <th>Orden</th>
@@ -36,7 +36,11 @@
                             <td>{{ consulta.paciente.dni }}</td>
                             <td>{{ consulta.motivo }}</td>
                             <td>{{ consulta.estado }}</td>
-                            <td>{{ consulta.prioridad_ia }}</td>
+                            <td class="prioridad-{{ consulta.prioridad_ia|lower }}">
+                                <span class="badge-prioridad">
+                                    {{ consulta.prioridad_ia }}
+                                </span>
+                            </td>
                         </tr>
                         {% empty %}
                         <tr>

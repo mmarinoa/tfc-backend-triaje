@@ -110,7 +110,6 @@ td {
 }
 
 
-
 .badge {
     padding: 4px 8px;
     border-radius: 12px;
@@ -118,6 +117,32 @@ td {
     font-weight: bold;
     text-transform: uppercase;
     background-color: #eee;
+}
+
+.badge-prioridad {
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 0.85rem;
+    display: inline-block;
+}
+
+.prioridad-1 .badge-prioridad {
+    background-color: #fce4e4;
+    color: #c0392b;
+    border: 1px solid #f5b7b1;
+}
+
+.prioridad-2 .badge-prioridad {
+    background-color: #fef5e7;
+    color: #d35400;
+    border: 1px solid #fad7a0;
+}
+
+.prioridad-3 .badge-prioridad {
+    background-color: #e8f8f5;
+    color: #27ae60;
+    border: 1px solid #a9dfbf;
 }
 
 .contenedor {
