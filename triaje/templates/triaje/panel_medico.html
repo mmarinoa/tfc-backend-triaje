@@ -7,37 +7,46 @@
     <link rel="stylesheet" href="{% static 'triaje/panel_medico.css' %}">
 </head>
 <body>
-    <h1>Panel médico</h1>
+    <div class="contenedor">
+        <header>
+            <h1>Panel médico</h1>
+            <p>Listado de pacientes en espera</p>
+        </header>
 
-    <h2>Listado de pacientes</h2>
+        <main>
+            <section>
+                <h2>Consultas registradas</h2>
 
-    <table border="1">
-        <thead>
-            <tr>
-                <th>Orden</th>
-                <th>Paciente</th>
-                <th>DNI</th>
-                <th>Motivo</th>
-                <th>Estado</th>
-                <th>Prioridad IA</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for consulta in consultas %}
-            <tr>
-                <td>{{ consulta.orden_manual }}</td>
-                <td>{{ consulta.paciente.nombre_completo }}</td>
-                <td>{{ consulta.paciente.dni }}</td>
-                <td>{{ consulta.motivo }}</td>
-                <td>{{ consulta.estado }}</td>
-                <td>{{ consulta.prioridad_ia }}</td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="6">No hay consultas registradas.</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+                <table border="1">
+                    <thead>
+                        <tr>
+                            <th>Orden</th>
+                            <th>Paciente</th>
+                            <th>DNI</th>
+                            <th>Motivo</th>
+                            <th>Estado</th>
+                            <th>Prioridad IA</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for consulta in consultas %}
+                        <tr>
+                            <td>{{ consulta.orden_manual }}</td>
+                            <td>{{ consulta.paciente.nombre_completo }}</td>
+                            <td>{{ consulta.paciente.dni }}</td>
+                            <td>{{ consulta.motivo }}</td>
+                            <td>{{ consulta.estado }}</td>
+                            <td>{{ consulta.prioridad_ia }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6">No hay consultas registradas.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </section>
+        </main>
+    </div>
 </body>
 </html>
