@@ -81,6 +81,11 @@ table td {
     font-size: 0.95rem;
 }
 
+table td:last-child {
+    font-weight: bold;
+    color: #e74c3c;
+}
+
 table tbody tr:nth-child(even) {
     background-color: #f8f9fa;
 }
@@ -88,4 +93,17 @@ table tbody tr:nth-child(even) {
 table tbody tr:hover {
     background-color: #edf2f7;
     transition: background-color 0.2s ease;
+}
+
+td {
+    vertical-align: middle;
+}
+
+.badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    background-color: #eee;
 }
