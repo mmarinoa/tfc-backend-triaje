@@ -1,6 +1,7 @@
 import json
 
 from django.contrib.auth.models import User
+from django.contrib.auth import authenticate
 from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import render
@@ -10,6 +11,7 @@ from .models import Paciente, Consulta
 from .serializers import (
     consulta_to_dict,
     paciente_to_dict,
+    validate_login_data,
     validate_register_data,
 )
 
@@ -57,6 +59,59 @@ def register_view(request):
         status=201
     )
 
+@csrf_exempt
+def login_view(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+    try:
+        body = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'JSON inválido'}, status=400)
+
+    is_valid, cleaned_data, errors = validate_login_data(body)
+
+    if not is_valid:
+        return JsonResponse({'errors': errors}, status=400)
+
+    email = cleaned_data['email']
+    password = cleaned_data['password']
+
+    user = User.objects.filter(email=email).first()
+
+    if user is None:
+        return JsonResponse(
+            {'error': 'Usuario no reconocido, regístrese primero.'},
+            status=404
+        )
+
+    authenticated_user = authenticate(
+        request,
+        username=user.username,
+        password=password
+    )
+
+    if authenticated_user is None:
+        return JsonResponse(
+            {'error': 'Contraseña incorrecta.'},
+            status=401
+        )
+
+    try:
+        paciente = authenticated_user.paciente
+    except Paciente.DoesNotExist:
+        return JsonResponse(
+            {'error': 'El usuario existe, pero no tiene paciente asociado.'},
+            status=500
+        )
+
+    return JsonResponse(
+        {
+            'message': 'Login correcto',
+            'paciente': paciente_to_dict(paciente),
+        },
+        status=200
+    )
 
 @csrf_exempt
 def consultas_view(request):
