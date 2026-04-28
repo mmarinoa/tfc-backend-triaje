@@ -1,19 +1,70 @@
 import json
 
-from django.shortcuts import render
+from django.contrib.auth.models import User
+from django.db import transaction
 from django.http import JsonResponse
+from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 
 from .models import Paciente, Consulta
+from .serializers import (
+    consulta_to_dict,
+    paciente_to_dict,
+    validate_register_data,
+)
 
 # Create your views here.
+@csrf_exempt
+def register_view(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+    try:
+        body = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'JSON inválido'}, status=400)
+
+    is_valid, cleaned_data, errors = validate_register_data(body)
+
+    if not is_valid:
+        return JsonResponse({'errors': errors}, status=400)
+
+    try:
+        with transaction.atomic():
+            user = User.objects.create_user(
+                username=cleaned_data['email'],
+                email=cleaned_data['email'],
+                password=cleaned_data['password'],
+            )
+
+            paciente = Paciente.objects.create(
+                user=user,
+                nombre_completo=cleaned_data['nombre_completo'],
+                dni=cleaned_data['dni'],
+            )
+
+    except Exception:
+        return JsonResponse(
+            {'error': 'No se pudo registrar el usuario.'},
+            status=500
+        )
+
+    return JsonResponse(
+        {
+            'message': 'Usuario registrado correctamente',
+            'paciente': paciente_to_dict(paciente),
+        },
+        status=201
+    )
+
+
 @csrf_exempt
 def consultas_view(request):
     if request.method == 'GET':
         estado = request.GET.get('estado')
         orden = request.GET.get('orden')
 
-        consultas = Consulta.objects.select_related('paciente', 'categoria').all()
+        consultas = Consulta.objects.select_related('paciente', 'paciente__user', 'categoria').all()
 
         if estado:
             consultas = consultas.filter(estado=estado)
@@ -23,18 +74,7 @@ def consultas_view(request):
         else:
             consultas = consultas.order_by('-fecha_creacion')
 
-        data = []
-        for consulta in consultas:
-            data.append({
-                'id': consulta.id,
-                'paciente': consulta.paciente.nombre_completo,
-                'dni': consulta.paciente.dni,
-                'motivo': consulta.motivo,
-                'estado': consulta.estado,
-                'categoria': consulta.categoria.nombre if consulta.categoria else None,
-                'prioridad_ia': consulta.prioridad_ia,
-                'fecha_creacion': consulta.fecha_creacion.isoformat(),
-            })
+        data = [consulta_to_dict(consulta) for consulta in consultas]
 
         return JsonResponse(data, safe=False, status=200)
 
@@ -52,10 +92,13 @@ def consultas_view(request):
                     status=400
                 )
 
-            paciente, _ = Paciente.objects.get_or_create(
-                dni=dni,
-                defaults={'nombre_completo': nombre_completo}
-            )
+            paciente = Paciente.objects.filter(dni=dni).first()
+
+            if paciente is None:
+                return JsonResponse(
+                    {'error': 'Paciente no encontrado. Debe registrarse primero.'},
+                    status=404
+                )
 
             if paciente.nombre_completo != nombre_completo:
                 paciente.nombre_completo = nombre_completo
@@ -69,7 +112,7 @@ def consultas_view(request):
 
             return JsonResponse({
                 'message': 'Consulta creada correctamente',
-                'consulta_id': consulta.id
+                'consulta': consulta_to_dict(consulta)
             }, status=201)
 
         except json.JSONDecodeError:
@@ -81,22 +124,12 @@ def consultas_view(request):
 @csrf_exempt
 def consulta_detail_view(request, consulta_id):
     try:
-        consulta = Consulta.objects.select_related('paciente', 'categoria').get(id=consulta_id)
+        consulta = Consulta.objects.select_related('paciente', 'paciente__user', 'categoria').get(id=consulta_id)
     except Consulta.DoesNotExist:
         return JsonResponse({'error': 'Consulta no encontrada'}, status=404)
 
     if request.method == 'GET':
-        data = {
-            'id': consulta.id,
-            'paciente': consulta.paciente.nombre_completo,
-            'dni': consulta.paciente.dni,
-            'motivo': consulta.motivo,
-            'estado': consulta.estado,
-            'categoria': consulta.categoria.nombre if consulta.categoria else None,
-            'prioridad_ia': consulta.prioridad_ia,
-            'fecha_creacion': consulta.fecha_creacion.isoformat(),
-        }
-        return JsonResponse(data, status=200)
+        return JsonResponse(consulta_to_dict(consulta), status=200)
 
     if request.method == 'PUT':
         try:
@@ -117,18 +150,35 @@ def consulta_detail_view(request, consulta_id):
 
             consulta.save()
 
-            return JsonResponse({'message': 'Consulta actualizada correctamente'}, status=200)
+            return JsonResponse({
+                'message': 'Consulta actualizada correctamente',
+                'consulta': consulta_to_dict(consulta),
+            }, status=200)
 
         except json.JSONDecodeError:
             return JsonResponse({'error': 'JSON inválido'}, status=400)
 
     if request.method == 'DELETE':
-        consulta.delete()
-        return JsonResponse({'message': 'Consulta eliminada correctamente'}, status=200)
+        consulta.estado = 'cancelada'
+        consulta.save()
+
+        return JsonResponse({
+            'message': 'Consulta cancelada correctamente',
+            'consulta': consulta_to_dict(consulta),
+        }, status=200)
 
     return JsonResponse({'error': 'Método no permitido'}, status=405)
 
 
 def panel_medico_view(request):
-    consultas = Consulta.objects.select_related('paciente', 'categoria').order_by('orden_manual', 'prioridad_ia', 'fecha_creacion')
+    consultas = Consulta.objects.select_related(
+        'paciente',
+        'paciente__user',
+        'categoria'
+    ).order_by(
+        'orden_manual',
+        'prioridad_ia',
+        'fecha_creacion'
+    )
+
     return render(request, 'triaje/panel_medico.html', {'consultas': consultas})

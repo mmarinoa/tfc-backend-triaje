@@ -1,7 +1,13 @@
 from django.db import models
+from django.conf import settings
 
 # Create your models here.
 class Paciente(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='paciente'
+    )
     nombre_completo = models.CharField(max_length=150)
     dni = models.CharField(max_length=9, unique=True)
     fecha_registro = models.DateTimeField(auto_now_add=True)
@@ -26,7 +32,11 @@ class Consulta(models.Model):
         ('cancelada', 'Cancelada'),
     ]
 
-    paciente = models.ForeignKey(Paciente, on_delete=models.CASCADE, related_name='consultas')
+    paciente = models.ForeignKey(
+        Paciente,
+        on_delete=models.CASCADE,
+        related_name='consultas'
+    )
     motivo = models.TextField()
     categoria = models.ForeignKey(
         CategoriaTriage,
@@ -35,7 +45,11 @@ class Consulta(models.Model):
         blank=True,
         related_name='consultas'
     )
-    estado = models.CharField(max_length=20, choices=ESTADOS, default='pendiente')
+    estado = models.CharField(
+        max_length=20,
+        choices=ESTADOS,
+        default='pendiente'
+    )
     prioridad_ia = models.IntegerField(null=True, blank=True)
     observaciones = models.TextField(blank=True, default='')
     orden_manual = models.IntegerField(default=0)
