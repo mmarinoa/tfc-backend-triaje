@@ -7,6 +7,8 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 
+from rest_framework_simplejwt.tokens import RefreshToken
+
 from .models import Paciente, Consulta
 from .serializers import (
     consulta_to_dict,
@@ -14,6 +16,14 @@ from .serializers import (
     validate_login_data,
     validate_register_data,
 )
+
+def get_tokens_for_user(user):
+    refresh = RefreshToken.for_user(user)
+
+    return {
+        'refresh': str(refresh),
+        'access': str(refresh.access_token),
+    }
 
 # Create your views here.
 @csrf_exempt
@@ -105,9 +115,13 @@ def login_view(request):
             status=500
         )
 
+    tokens = get_tokens_for_user(authenticated_user)
+
     return JsonResponse(
         {
             'message': 'Login correcto',
+            'access': tokens['access'],
+            'refresh': tokens['refresh'],
             'paciente': paciente_to_dict(paciente),
         },
         status=200
