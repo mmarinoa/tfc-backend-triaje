@@ -1,12 +1,14 @@
 import json
 
-from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
+from django.contrib.auth.models import User
 from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
-
+from rest_framework.exceptions import AuthenticationFailed
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import Paciente, Consulta
@@ -17,6 +19,7 @@ from .serializers import (
     validate_register_data,
 )
 
+
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
 
@@ -25,7 +28,41 @@ def get_tokens_for_user(user):
         'access': str(refresh.access_token),
     }
 
-# Create your views here.
+
+def get_authenticated_user(request):
+    """
+    Comprueba el token JWT enviado en la cabecera Authorization.
+
+    Formato esperado:
+    Authorization: Bearer <access_token>
+    """
+    jwt_authenticator = JWTAuthentication()
+
+    try:
+        auth_result = jwt_authenticator.authenticate(request)
+    except (AuthenticationFailed, InvalidToken, TokenError):
+        return None, JsonResponse(
+            {'error': 'Token inválido o caducado.'},
+            status=401
+        )
+
+    if auth_result is None:
+        return None, JsonResponse(
+            {'error': 'Autenticación requerida.'},
+            status=401
+        )
+
+    user, _ = auth_result
+
+    if not user.is_active:
+        return None, JsonResponse(
+            {'error': 'Usuario inactivo.'},
+            status=401
+        )
+
+    return user, None
+
+
 @csrf_exempt
 def register_view(request):
     if request.method != 'POST':
@@ -68,6 +105,7 @@ def register_view(request):
         },
         status=201
     )
+
 
 @csrf_exempt
 def login_view(request):
@@ -127,13 +165,26 @@ def login_view(request):
         status=200
     )
 
+
 @csrf_exempt
 def consultas_view(request):
+    user, auth_error = get_authenticated_user(request)
+
+    if auth_error is not None:
+        return auth_error
+
     if request.method == 'GET':
         estado = request.GET.get('estado')
         orden = request.GET.get('orden')
 
-        consultas = Consulta.objects.select_related('paciente', 'paciente__user', 'categoria').all()
+        consultas = Consulta.objects.select_related(
+            'paciente',
+            'paciente__user',
+            'categoria'
+        )
+
+        if not user.is_staff and not user.is_superuser:
+            consultas = consultas.filter(paciente__user=user)
 
         if estado:
             consultas = consultas.filter(estado=estado)
@@ -150,52 +201,61 @@ def consultas_view(request):
     if request.method == 'POST':
         try:
             body = json.loads(request.body)
-
-            nombre_completo = body.get('nombre_completo', '').strip()
-            dni = body.get('dni', '').strip().upper()
-            motivo = body.get('motivo', '').strip()
-
-            if not nombre_completo or not dni or not motivo:
-                return JsonResponse(
-                    {'error': 'nombre_completo, dni y motivo son obligatorios'},
-                    status=400
-                )
-
-            paciente = Paciente.objects.filter(dni=dni).first()
-
-            if paciente is None:
-                return JsonResponse(
-                    {'error': 'Paciente no encontrado. Debe registrarse primero.'},
-                    status=404
-                )
-
-            if paciente.nombre_completo != nombre_completo:
-                paciente.nombre_completo = nombre_completo
-                paciente.save()
-
-            consulta = Consulta.objects.create(
-                paciente=paciente,
-                motivo=motivo,
-                estado='pendiente'
-            )
-
-            return JsonResponse({
-                'message': 'Consulta creada correctamente',
-                'consulta': consulta_to_dict(consulta)
-            }, status=201)
-
         except json.JSONDecodeError:
             return JsonResponse({'error': 'JSON inválido'}, status=400)
+
+        motivo = body.get('motivo', '').strip()
+
+        if not motivo:
+            return JsonResponse(
+                {'error': 'El motivo de consulta es obligatorio.'},
+                status=400
+            )
+
+        try:
+            paciente = user.paciente
+        except Paciente.DoesNotExist:
+            return JsonResponse(
+                {'error': 'El usuario autenticado no tiene paciente asociado.'},
+                status=403
+            )
+
+        consulta = Consulta.objects.create(
+            paciente=paciente,
+            motivo=motivo,
+            estado='pendiente'
+        )
+
+        return JsonResponse(
+            {
+                'message': 'Consulta creada correctamente',
+                'consulta': consulta_to_dict(consulta)
+            },
+            status=201
+        )
 
     return JsonResponse({'error': 'Método no permitido'}, status=405)
 
 
 @csrf_exempt
 def consulta_detail_view(request, consulta_id):
+    user, auth_error = get_authenticated_user(request)
+
+    if auth_error is not None:
+        return auth_error
+
     try:
-        consulta = Consulta.objects.select_related('paciente', 'paciente__user', 'categoria').get(id=consulta_id)
+        consulta = Consulta.objects.select_related(
+            'paciente',
+            'paciente__user',
+            'categoria'
+        ).get(id=consulta_id)
     except Consulta.DoesNotExist:
         return JsonResponse({'error': 'Consulta no encontrada'}, status=404)
+
+    if not user.is_staff and not user.is_superuser:
+        if consulta.paciente.user_id != user.id:
+            return JsonResponse({'error': 'Consulta no encontrada'}, status=404)
 
     if request.method == 'GET':
         return JsonResponse(consulta_to_dict(consulta), status=200)
