@@ -272,9 +272,34 @@ def consulta_detail_view(request, consulta_id):
                 consulta.motivo = motivo.strip()
 
             if estado is not None:
+                estados_validos = [choice[0] for choice in Consulta.ESTADOS]
+
+                if estado not in estados_validos:
+                    return JsonResponse(
+                        {
+                            'error': 'Estado no válido.',
+                            'estados_validos': estados_validos,
+                        },
+                        status=400
+                    )
+
                 consulta.estado = estado
 
             if prioridad_ia is not None:
+                try:
+                    prioridad_ia = int(prioridad_ia)
+                except (TypeError, ValueError):
+                    return JsonResponse(
+                        {'error': 'La prioridad IA debe ser un número entero.'},
+                        status=400
+                    )
+
+                if prioridad_ia < 1 or prioridad_ia > 5:
+                    return JsonResponse(
+                        {'error': 'La prioridad IA debe estar entre 1 y 5.'},
+                        status=400
+                    )
+
                 consulta.prioridad_ia = prioridad_ia
 
             consulta.save()
