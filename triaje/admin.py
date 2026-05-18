@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Paciente, Consulta, CategoriaTriage
+from .models import Paciente, Consulta, CategoriaTriage, ConsultaCategoriaTriage
 
 # Register your models here.
 @admin.register(Paciente)
@@ -20,3 +20,33 @@ class ConsultaAdmin(admin.ModelAdmin):
     list_filter = ('estado', 'categoria')
     search_fields = ('paciente__nombre_completo', 'paciente__dni', 'motivo')
     ordering = ('fecha_creacion',)
+
+@admin.register(ConsultaCategoriaTriage)
+class ConsultaCategoriaTriageAdmin(admin.ModelAdmin):
+    list_display = (
+        'id',
+        'consulta',
+        'categoria',
+        'prioridad_ia',
+        'origen',
+        'usuario',
+        'fecha_creacion',
+    )
+    list_filter = (
+        'categoria',
+        'origen',
+        'fecha_creacion',
+    )
+    search_fields = (
+        'consulta__paciente__nombre_completo',
+        'consulta__paciente__dni',
+        'consulta__motivo',
+        'motivo_en_ese_momento',
+        'observaciones',
+    )
+    readonly_fields = (
+        'fecha_creacion',
+    )
+    ordering = (
+        '-fecha_creacion',
+    )

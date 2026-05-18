@@ -58,3 +58,49 @@ class Consulta(models.Model):
 
     def __str__(self):
         return f"Consulta #{self.id} - {self.paciente.nombre_completo}"
+
+class ConsultaCategoriaTriage(models.Model):
+    ORIGEN_CHOICES = [
+        ('ia', 'Inteligencia artificial'),
+        ('medico', 'Médico'),
+        ('sistema', 'Sistema'),
+    ]
+
+    consulta = models.ForeignKey(
+        Consulta,
+        on_delete=models.CASCADE,
+        related_name='historial_categorias'
+    )
+    categoria = models.ForeignKey(
+        CategoriaTriage,
+        on_delete=models.PROTECT,
+        related_name='historial_consultas'
+    )
+    prioridad_ia = models.IntegerField(null=True, blank=True)
+    motivo_en_ese_momento = models.TextField()
+    origen = models.CharField(
+        max_length=20,
+        choices=ORIGEN_CHOICES,
+        default='sistema'
+    )
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cambios_categoria_triaje'
+    )
+    observaciones = models.TextField(blank=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-fecha_creacion']
+        verbose_name = 'Histórico de categoría de triaje'
+        verbose_name_plural = 'Históricos de categorías de triaje'
+
+    def __str__(self):
+        return (
+            f"Consulta #{self.consulta_id} - "
+            f"{self.categoria.nombre} - "
+            f"{self.get_origen_display()}"
+        )
