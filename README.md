@@ -2,7 +2,7 @@
 
 Backend del proyecto **Sistema de triaje inteligente para urgencias**, desarrollado con **Django** como parte del TFC del ciclo de **Desarrollo de Aplicaciones Multiplataforma**.
 
-Este backend actúa como servidor central del sistema. Se encarga de recibir las peticiones de la aplicación Android, gestionar los pacientes, guardar las consultas médicas y servir la información necesaria para el panel médico.
+Este backend actúa como servidor central del sistema. Se encarga de recibir las peticiones de la aplicación Android, gestionar los pacientes, guardar las consultas médicas, servir la información necesaria para el panel médico y mantener un histórico de los cambios de categoría de triaje.
 
 La idea final del proyecto es que las consultas enviadas por los pacientes puedan ser clasificadas mediante un flujo de **n8n** conectado a un agente de inteligencia artificial. Esta IA devolverá una prioridad numérica y, a partir de esa prioridad, el sistema podrá asignar automáticamente la categoría de triaje correspondiente.
 
@@ -44,6 +44,10 @@ Actualmente el backend permite:
 - Cancelación de consultas desde Android.
 - Modelo de categorías de triaje.
 - Comando para cargar categorías oficiales de triaje.
+- Histórico de cambios de categoría de triaje.
+- Relación N:M entre consultas y categorías mediante un modelo intermedio.
+- Asignación automática de categoría según la prioridad IA.
+- Registro automático del histórico al actualizar la prioridad IA.
 - Panel de administración con Django Admin.
 - Panel web básico para el médico.
 - Endpoints REST propios para registro, login y consultas.
@@ -157,7 +161,7 @@ Actualmente el modelo de consulta ya está preparado para guardar:
 - Paciente asociado.
 - Motivo de consulta.
 - Estado.
-- Categoría de triaje.
+- Categoría de triaje actual.
 - Prioridad devuelta por IA.
 - Observaciones.
 - Orden manual.
@@ -215,7 +219,7 @@ Endpoint:
 
     PUT /api/consultas/<id>/
 
-Ejemplo de JSON recibido:
+Ejemplo de JSON recibido para modificar el motivo:
 
     {
       "motivo": "Dolor fuerte en el pecho y dificultad para respirar"
@@ -231,6 +235,20 @@ Estados válidos:
     cancelada
 
 La prioridad IA debe ser un número entero entre 1 y 5.
+
+Ejemplo de JSON recibido para actualizar la prioridad IA:
+
+    {
+      "prioridad_ia": 2
+    }
+
+Cuando se actualiza `prioridad_ia`, el sistema busca automáticamente la categoría de triaje correspondiente.
+
+Ejemplo:
+
+    prioridad_ia = 2  ->  CategoriaTriage = Naranja
+
+Además, en ese mismo proceso se crea un registro en el histórico de categorías de triaje, guardando la categoría asignada, la prioridad IA, el motivo de consulta en ese momento, el origen del cambio, el usuario y la fecha.
 
 ---
 
@@ -286,10 +304,11 @@ El médico tendrá siempre la última palabra y podrá modificar manualmente el 
     │   └── wsgi.py
     │
     ├── triaje/               # App principal del sistema
-    │   ├── models.py         # Modelos Paciente, Consulta y CategoriaTriage
+    │   ├── models.py         # Modelos Paciente, Consulta, CategoriaTriage e histórico
     │   ├── views.py          # Vistas y endpoints de la API
     │   ├── urls.py           # Rutas de la app triaje
     │   ├── serializers.py    # Validación y conversión manual a JSON
+    │   ├── services.py       # Lógica auxiliar del dominio
     │   ├── admin.py          # Registro de modelos en Django Admin
     │   ├── migrations/       # Migraciones de base de datos
     │   ├── management/       # Comandos personalizados de Django
@@ -330,7 +349,7 @@ Campos principales:
 
 - `paciente`: paciente asociado a la consulta.
 - `motivo`: texto escrito por el paciente.
-- `categoria`: categoría de triaje asignada.
+- `categoria`: categoría de triaje actual asignada.
 - `estado`: estado actual de la consulta.
 - `prioridad_ia`: prioridad numérica devuelta por la IA.
 - `observaciones`: información adicional o resumen.
@@ -338,7 +357,7 @@ Campos principales:
 - `fecha_creacion`: fecha de creación.
 - `fecha_actualizacion`: última modificación.
 
-La idea es que `prioridad_ia` guarde el número devuelto por la inteligencia artificial. Ese número se utilizará para asignar automáticamente la categoría de triaje correspondiente.
+La idea es que `prioridad_ia` guarde el número devuelto por la inteligencia artificial. Ese número se utiliza para asignar automáticamente la categoría de triaje correspondiente.
 
 Por ejemplo:
 
@@ -375,9 +394,80 @@ Estas categorías se utilizan para representar visualmente el nivel de urgencia 
 
 ---
 
-## 🧠 Relación entre prioridad IA, categoría y orden manual
+### ConsultaCategoriaTriage
 
-El sistema diferencia tres conceptos importantes:
+Representa el histórico de categorías de triaje por las que ha pasado una consulta.
+
+Este modelo actúa como tabla intermedia entre `Consulta` y `CategoriaTriage`, permitiendo representar una relación N:M entre ambas entidades.
+
+Campos principales:
+
+- `consulta`: consulta asociada al cambio de categoría.
+- `categoria`: categoría asignada en ese momento.
+- `prioridad_ia`: prioridad numérica asociada a esa categoría.
+- `motivo_en_ese_momento`: copia del motivo de consulta en el momento del cambio.
+- `origen`: indica si el cambio viene de IA, médico o sistema.
+- `usuario`: usuario que realizó el cambio, si existe.
+- `observaciones`: explicación o comentario adicional.
+- `fecha_creacion`: fecha en la que se registró el cambio.
+
+Este modelo permite conservar la trazabilidad de las categorías asignadas a una consulta.
+
+Por ejemplo, una consulta podría tener este histórico:
+
+    09:00  ->  Amarillo  ->  Motivo: "Me duele el tobillo"
+    09:15  ->  Naranja   ->  Motivo: "Me duele el tobillo y se me está hinchando mucho"
+
+Esto es útil porque el motivo de consulta puede cambiar y, por tanto, también puede cambiar la categoría de triaje asignada.
+
+---
+
+## 🔗 Relaciones entre modelos
+
+### Relación 1:1
+
+El sistema utiliza una relación 1:1 entre `User` y `Paciente`.
+
+    User 1:1 Paciente
+
+Cada usuario de Django está asociado a un único paciente, y cada paciente pertenece a un único usuario.
+
+---
+
+### Relaciones 1:N
+
+El sistema utiliza varias relaciones 1:N.
+
+    Paciente 1:N Consulta
+
+Un paciente puede tener varias consultas, pero cada consulta pertenece a un único paciente.
+
+    CategoriaTriage 1:N Consulta
+
+Una categoría de triaje puede estar asignada como categoría actual a muchas consultas, pero cada consulta tiene una única categoría actual.
+
+---
+
+### Relación N:M
+
+El sistema representa una relación N:M entre `Consulta` y `CategoriaTriage` mediante el modelo intermedio `ConsultaCategoriaTriage`.
+
+    Consulta N:M CategoriaTriage
+
+Esta relación se implementa de forma práctica mediante dos relaciones 1:N:
+
+    Consulta 1:N ConsultaCategoriaTriage
+    CategoriaTriage 1:N ConsultaCategoriaTriage
+
+Esto permite que una consulta pueda pasar por varias categorías a lo largo del tiempo, y que una misma categoría pueda aparecer en el histórico de muchas consultas distintas.
+
+Además, al usar un modelo intermedio propio, se puede guardar información adicional del cambio, como el motivo en ese momento, el origen, el usuario y la fecha.
+
+---
+
+## 🧠 Relación entre prioridad IA, categoría, histórico y orden manual
+
+El sistema diferencia cuatro conceptos importantes.
 
 ### Prioridad IA
 
@@ -404,6 +494,23 @@ La categoría permite representar la prioridad de forma más clara para el perso
 
 ---
 
+### Histórico de categorías
+
+Cada vez que se asigna o modifica la prioridad IA de una consulta, el sistema puede registrar un histórico de la categoría asociada.
+
+Esto permite saber:
+
+- Qué categoría tuvo la consulta.
+- Qué prioridad IA se aplicó.
+- Qué motivo tenía la consulta en ese momento.
+- Si el cambio fue realizado por el sistema, la IA o un médico.
+- Qué usuario realizó el cambio.
+- Cuándo se realizó.
+
+Esto es importante porque una consulta puede cambiar. Por ejemplo, un paciente puede enviar inicialmente un motivo leve y más tarde modificarlo añadiendo nuevos síntomas. En ese caso, la categoría de triaje puede cambiar y el sistema conserva el registro anterior.
+
+---
+
 ### Orden manual
 
 Es el ajuste que puede realizar el médico desde el panel web.
@@ -415,6 +522,46 @@ La idea final del orden de visualización en el panel médico sería:
     orden_manual -> prioridad_ia -> fecha_creacion
 
 De esta manera, el sistema puede usar la IA como ayuda inicial, pero mantiene la intervención del médico como decisión final.
+
+---
+
+## 🧩 Servicio de asignación de categoría
+
+El proyecto incluye una función de servicio para asignar categorías de triaje de forma controlada.
+
+Archivo:
+
+    triaje/services.py
+
+Función principal:
+
+    asignar_categoria_a_consulta()
+
+Esta función recibe una consulta y una prioridad IA. A partir de esa prioridad, busca la categoría de triaje correspondiente y actualiza la consulta.
+
+Además, crea un registro en `ConsultaCategoriaTriage` para mantener el histórico de categorías.
+
+Ejemplo de funcionamiento:
+
+    prioridad_ia = 2
+
+Resultado:
+
+    consulta.prioridad_ia = 2
+    consulta.categoria = Naranja
+
+Y se crea un histórico con:
+
+    consulta
+    categoria = Naranja
+    prioridad_ia = 2
+    motivo_en_ese_momento
+    origen
+    usuario
+    observaciones
+    fecha_creacion
+
+Esta lógica evita tener que repetir el mismo código en distintas partes del backend y asegura que cada cambio de prioridad quede registrado correctamente.
 
 ---
 
@@ -557,6 +704,8 @@ Ejemplo:
     IA devuelve prioridad_ia = 2
     Django asigna CategoriaTriage = Naranja
 
+Al asignarse esa categoría, también se creará una entrada en el histórico de categorías de la consulta. Esto permitirá saber qué categoría tuvo cada consulta en cada momento y con qué motivo se asignó.
+
 Después, el médico podrá ver la consulta en el panel web y modificar manualmente el orden o la categoría si lo considera necesario.
 
 ---
@@ -568,7 +717,7 @@ Después, el médico podrá ver la consulta en el panel web y modificar manualme
 - Asignar automáticamente la categoría de triaje según la prioridad devuelta por IA.
 - Mejorar el panel médico para mostrar consultas ordenadas por prioridad.
 - Permitir ajustes manuales del orden desde el panel médico.
-- Valorar histórico de cambios de categoría de triaje.
+- Mostrar el histórico de categorías de forma más detallada en el panel médico.
 - Preparar renovación de tokens JWT.
 - Preparar despliegue futuro con una base de datos más robusta.
 
