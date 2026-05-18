@@ -18,6 +18,7 @@ from .serializers import (
     validate_login_data,
     validate_register_data,
 )
+from .services import asignar_categoria_a_consulta
 
 
 def get_tokens_for_user(user):
@@ -295,20 +296,18 @@ def consulta_detail_view(request, consulta_id):
 
             if prioridad_ia is not None:
                 try:
-                    prioridad_ia = int(prioridad_ia)
-                except (TypeError, ValueError):
+                    asignar_categoria_a_consulta(
+                        consulta=consulta,
+                        prioridad_ia=prioridad_ia,
+                        origen='sistema',
+                        usuario=user if user.is_authenticated else None,
+                        observaciones='Categoría asignada desde actualización de consulta.'
+                    )
+                except ValueError as error:
                     return JsonResponse(
-                        {'error': 'La prioridad IA debe ser un número entero.'},
+                        {'error': str(error)},
                         status=400
                     )
-
-                if prioridad_ia < 1 or prioridad_ia > 5:
-                    return JsonResponse(
-                        {'error': 'La prioridad IA debe estar entre 1 y 5.'},
-                        status=400
-                    )
-
-                consulta.prioridad_ia = prioridad_ia
 
             consulta.save()
 
