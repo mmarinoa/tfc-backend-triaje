@@ -9,6 +9,20 @@ from .models import Paciente, Consulta
 
 
 DNI_REGEX = r"^[0-9]{8}[A-Za-z]$"
+DNI_LETTERS = "TRWAGMYFPDXBNJZSQVHLCKE"
+
+def is_valid_dni_letter(dni: str) -> bool:
+    """
+    Valida que la letra del DNI corresponda con sus 8 números.
+    """
+    if not re.match(DNI_REGEX, dni):
+        return False
+
+    number = int(dni[:8])
+    provided_letter = dni[-1].upper()
+    expected_letter = DNI_LETTERS[number % 23]
+
+    return provided_letter == expected_letter
 
 
 def validate_register_data(data: dict[str, Any]) -> tuple[bool, dict[str, str], dict[str, str]]:
@@ -34,6 +48,8 @@ def validate_register_data(data: dict[str, Any]) -> tuple[bool, dict[str, str], 
         errors["dni"] = "El DNI es obligatorio."
     elif not re.match(DNI_REGEX, dni):
         errors["dni"] = "El DNI debe tener 8 números y una letra."
+    elif not is_valid_dni_letter(dni):
+        errors["dni"] = "La letra del DNI no es correcta."
 
     if not email:
         errors["email"] = "El email es obligatorio."
