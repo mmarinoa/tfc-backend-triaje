@@ -7,6 +7,12 @@ info:
     API REST del backend Django para la gestión de pacientes, autenticación y consultas
     del sistema de triaje inteligente para urgencias. La API permite registrar pacientes,
     iniciar sesión, crear consultas, consultar su estado, modificarlas y cancelarlas.
+
+    El sistema también permite asignar una prioridad IA a una consulta. A partir de esa
+    prioridad, Django asigna automáticamente la categoría de triaje correspondiente y
+    registra un histórico de cambios de categoría mediante el modelo intermedio
+    ConsultaCategoriaTriage.
+
     La integración con n8n e inteligencia artificial está prevista para una fase posterior.
 
 servers:
@@ -132,7 +138,7 @@ paths:
         - name: estado
           in: query
           required: false
-          description: Filtra consultas por estado
+          description: Filtra consultas por estado.
           schema:
             type: string
             enum:
@@ -143,7 +149,7 @@ paths:
         - name: orden
           in: query
           required: false
-          description: Permite ordenar por prioridad
+          description: Permite ordenar por prioridad IA y fecha de creación.
           schema:
             type: string
             enum:
@@ -171,6 +177,9 @@ paths:
       description: >
         Crea una nueva consulta asociada al paciente autenticado. El paciente se identifica
         por el token JWT, no por datos enviados manualmente en la petición.
+
+        Al crearse, la consulta queda normalmente en estado pendiente, sin categoría de
+        triaje y sin prioridad IA asignada.
       security:
         - bearerAuth: []
       requestBody:
@@ -250,7 +259,17 @@ paths:
       summary: Actualizar consulta
       description: >
         Actualiza una consulta existente. Permite modificar el motivo, el estado y la
-        prioridad IA. El estado y la prioridad IA tienen validaciones para evitar valores incorrectos.
+        prioridad IA.
+
+        El estado tiene que pertenecer a los valores permitidos y la prioridad IA debe ser
+        un número entero entre 1 y 5.
+
+        Cuando se actualiza prioridad_ia, el backend busca automáticamente la categoría
+        de triaje correspondiente según su prioridad. Por ejemplo, prioridad_ia = 2
+        asigna la categoría Naranja. Además, se crea un registro en el histórico de
+        categorías de triaje mediante ConsultaCategoriaTriage, guardando la categoría,
+        la prioridad IA, el motivo de consulta en ese momento, el origen del cambio,
+        el usuario y la fecha.
       security:
         - bearerAuth: []
       parameters:
@@ -276,7 +295,7 @@ paths:
                 value:
                   estado: "en_espera"
               actualizarPrioridad:
-                summary: Actualizar prioridad IA
+                summary: Actualizar prioridad IA y categoría de triaje
                 value:
                   prioridad_ia: 2
       responses:
@@ -428,6 +447,9 @@ components:
     CategoriaTriage:
       type: object
       nullable: true
+      description: >
+        Categoría oficial de triaje. La prioridad numérica permite relacionarla
+        con el valor devuelto por la IA.
       properties:
         id:
           type: integer
@@ -468,6 +490,9 @@ components:
           minimum: 1
           maximum: 5
           example: 2
+          description: >
+            Prioridad numérica sugerida por la IA. Cuando se actualiza este campo,
+            el backend asigna automáticamente la categoría de triaje correspondiente.
         observaciones:
           type: string
           nullable: true
@@ -475,6 +500,7 @@ components:
         orden_manual:
           type: integer
           example: 0
+          description: Ajuste manual del orden de atención.
         fecha_creacion:
           type: string
           format: date-time
@@ -483,6 +509,57 @@ components:
           type: string
           format: date-time
           example: "2026-04-28T09:40:12.753639+00:00"
+
+    ConsultaCategoriaTriage:
+      type: object
+      description: >
+        Registro histórico de una categoría asignada a una consulta. Este modelo
+        actúa como tabla intermedia entre Consulta y CategoriaTriage, permitiendo
+        representar una relación N:M con información adicional.
+      properties:
+        id:
+          type: integer
+          example: 1
+        consulta:
+          type: integer
+          example: 2
+          description: ID de la consulta asociada.
+        categoria:
+          allOf:
+            - $ref: "#/components/schemas/CategoriaTriage"
+        prioridad_ia:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 5
+          example: 2
+        motivo_en_ese_momento:
+          type: string
+          example: "Me duele el tobillo y se me esta hinchando bastante"
+          description: >
+            Copia del motivo que tenía la consulta en el momento en que se asignó
+            la categoría.
+        origen:
+          type: string
+          enum:
+            - ia
+            - medico
+            - sistema
+          example: "sistema"
+          description: Indica si el cambio fue realizado por IA, médico o sistema.
+        usuario:
+          type: string
+          nullable: true
+          example: "marta@test.com"
+          description: Usuario que provocó el cambio, si existe.
+        observaciones:
+          type: string
+          nullable: true
+          example: "Categoría asignada desde actualización de consulta."
+        fecha_creacion:
+          type: string
+          format: date-time
+          example: "2026-05-18T15:20:00.000000+00:00"
 
     ConsultaCreateRequest:
       type: object
@@ -512,6 +589,10 @@ components:
           minimum: 1
           maximum: 5
           example: 2
+          description: >
+            Prioridad sugerida por la IA. Al enviarse este campo, el backend asigna
+            automáticamente la categoría de triaje correspondiente y crea una entrada
+            en el histórico de categorías.
 
     RegisterResponse:
       type: object
@@ -542,7 +623,7 @@ components:
       properties:
         message:
           type: string
-          example: "Consulta creada correctamente"
+          example: "Consulta actualizada correctamente"
         consulta:
           $ref: "#/components/schemas/Consulta"
 
