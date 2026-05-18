@@ -269,7 +269,15 @@ def consulta_detail_view(request, consulta_id):
             prioridad_ia = body.get('prioridad_ia')
 
             if motivo is not None:
-                consulta.motivo = motivo.strip()
+                motivo = motivo.strip()
+
+                if not motivo:
+                    return JsonResponse(
+                        {'error': 'El motivo de consulta no puede estar vacío.'},
+                        status=400
+                    )
+
+                consulta.motivo = motivo
 
             if estado is not None:
                 estados_validos = [choice[0] for choice in Consulta.ESTADOS]
