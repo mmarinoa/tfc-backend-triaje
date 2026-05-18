@@ -1,0 +1,564 @@
+openapi: 3.0.3
+
+info:
+  title: API REST - Sistema de triaje inteligente para urgencias
+  version: "1.0.0"
+  description: >
+    API REST del backend Django para la gestión de pacientes, autenticación y consultas
+    del sistema de triaje inteligente para urgencias. La API permite registrar pacientes,
+    iniciar sesión, crear consultas, consultar su estado, modificarlas y cancelarlas.
+    La integración con n8n e inteligencia artificial está prevista para una fase posterior.
+
+servers:
+  - url: http://127.0.0.1:8000
+    description: Servidor local de desarrollo
+  - url: http://10.0.2.2:8000
+    description: Servidor local accedido desde emulador Android
+
+tags:
+  - name: Autenticación
+    description: Registro e inicio de sesión de pacientes
+  - name: Consultas
+    description: Gestión de consultas de pacientes
+  - name: Panel médico
+    description: Vista web básica para personal médico
+
+paths:
+  /api/auth/register/:
+    post:
+      tags:
+        - Autenticación
+      summary: Registrar un nuevo paciente
+      description: >
+        Crea un usuario de Django y un paciente asociado. El registro valida nombre,
+        DNI, email y contraseña. El DNI debe tener formato correcto y letra válida.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+            example:
+              nombre_completo: "Marta Garcia"
+              dni: "12345678Z"
+              email: "marta@test.com"
+              password: "123456"
+      responses:
+        "201":
+          description: Usuario registrado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterResponse"
+        "400":
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "405":
+          description: Método no permitido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Error interno al registrar usuario
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/auth/login/:
+    post:
+      tags:
+        - Autenticación
+      summary: Iniciar sesión como paciente
+      description: >
+        Comprueba si el usuario existe y si la contraseña es correcta.
+        Si el login es correcto, devuelve los datos del paciente junto con tokens JWT.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+            example:
+              email: "marta@test.com"
+              password: "123456"
+      responses:
+        "200":
+          description: Login correcto
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          description: Contraseña incorrecta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Usuario no reconocido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "405":
+          description: Método no permitido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/consultas/:
+    get:
+      tags:
+        - Consultas
+      summary: Listar consultas
+      description: >
+        Lista consultas. Si el usuario autenticado es paciente, solo obtiene sus propias
+        consultas. Si el usuario es staff o superusuario, puede ver todas.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: estado
+          in: query
+          required: false
+          description: Filtra consultas por estado
+          schema:
+            type: string
+            enum:
+              - pendiente
+              - en_espera
+              - atendida
+              - cancelada
+        - name: orden
+          in: query
+          required: false
+          description: Permite ordenar por prioridad
+          schema:
+            type: string
+            enum:
+              - prioridad
+      responses:
+        "200":
+          description: Lista de consultas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Consulta"
+        "401":
+          description: Token ausente, inválido o caducado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      tags:
+        - Consultas
+      summary: Crear consulta
+      description: >
+        Crea una nueva consulta asociada al paciente autenticado. El paciente se identifica
+        por el token JWT, no por datos enviados manualmente en la petición.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConsultaCreateRequest"
+            example:
+              motivo: "Dolor fuerte en el pecho desde hace una hora"
+      responses:
+        "201":
+          description: Consulta creada correctamente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsultaResponse"
+        "400":
+          description: JSON inválido o motivo vacío
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Autenticación requerida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Usuario autenticado sin paciente asociado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/consultas/{id}/:
+    get:
+      tags:
+        - Consultas
+      summary: Consultar detalle de una consulta
+      description: >
+        Devuelve el detalle de una consulta concreta. Un paciente solo puede consultar
+        sus propias consultas. Staff y superusuarios pueden consultar todas.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID de la consulta
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Detalle de consulta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Consulta"
+        "401":
+          description: Autenticación requerida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Consulta no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    put:
+      tags:
+        - Consultas
+      summary: Actualizar consulta
+      description: >
+        Actualiza una consulta existente. Permite modificar el motivo, el estado y la
+        prioridad IA. El estado y la prioridad IA tienen validaciones para evitar valores incorrectos.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID de la consulta
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConsultaUpdateRequest"
+            examples:
+              actualizarMotivo:
+                summary: Actualizar motivo
+                value:
+                  motivo: "Dolor fuerte en el pecho y dificultad para respirar"
+              actualizarEstado:
+                summary: Actualizar estado
+                value:
+                  estado: "en_espera"
+              actualizarPrioridad:
+                summary: Actualizar prioridad IA
+                value:
+                  prioridad_ia: 2
+      responses:
+        "200":
+          description: Consulta actualizada correctamente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsultaResponse"
+        "400":
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Autenticación requerida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Consulta no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      tags:
+        - Consultas
+      summary: Cancelar consulta
+      description: >
+        Cancela una consulta cambiando su estado a cancelada. No elimina físicamente
+        el registro de la base de datos.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID de la consulta
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Consulta cancelada correctamente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsultaResponse"
+        "401":
+          description: Autenticación requerida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Consulta no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/panel/consultas/:
+    get:
+      tags:
+        - Panel médico
+      summary: Ver panel médico de consultas
+      description: >
+        Devuelve una vista HTML básica con las consultas ordenadas para el personal médico.
+        Actualmente se ordenan por orden manual, prioridad IA y fecha de creación.
+      responses:
+        "200":
+          description: Página HTML del panel médico
+          content:
+            text/html:
+              schema:
+                type: string
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required:
+        - nombre_completo
+        - dni
+        - email
+        - password
+      properties:
+        nombre_completo:
+          type: string
+          example: "Marta Garcia"
+        dni:
+          type: string
+          example: "12345678Z"
+          description: DNI con 8 números y letra válida
+        email:
+          type: string
+          format: email
+          example: "marta@test.com"
+        password:
+          type: string
+          format: password
+          example: "123456"
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: "marta@test.com"
+        password:
+          type: string
+          format: password
+          example: "123456"
+
+    Paciente:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        nombre_completo:
+          type: string
+          example: "Marta Garcia"
+        dni:
+          type: string
+          example: "12345678Z"
+        email:
+          type: string
+          format: email
+          example: "marta@test.com"
+        fecha_registro:
+          type: string
+          format: date-time
+          example: "2026-04-28T09:33:35.753639+00:00"
+
+    CategoriaTriage:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: integer
+          example: 2
+        nombre:
+          type: string
+          example: "Naranja"
+        prioridad:
+          type: integer
+          example: 2
+
+    Consulta:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        paciente:
+          $ref: "#/components/schemas/Paciente"
+        motivo:
+          type: string
+          example: "Dolor fuerte en el pecho desde hace una hora"
+        estado:
+          type: string
+          enum:
+            - pendiente
+            - en_espera
+            - atendida
+            - cancelada
+          example: "pendiente"
+        categoria:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/CategoriaTriage"
+        prioridad_ia:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 5
+          example: 2
+        observaciones:
+          type: string
+          nullable: true
+          example: "Paciente con síntomas que requieren revisión prioritaria."
+        orden_manual:
+          type: integer
+          example: 0
+        fecha_creacion:
+          type: string
+          format: date-time
+          example: "2026-04-28T09:33:35.753639+00:00"
+        fecha_actualizacion:
+          type: string
+          format: date-time
+          example: "2026-04-28T09:40:12.753639+00:00"
+
+    ConsultaCreateRequest:
+      type: object
+      required:
+        - motivo
+      properties:
+        motivo:
+          type: string
+          example: "Dolor fuerte en el pecho desde hace una hora"
+
+    ConsultaUpdateRequest:
+      type: object
+      properties:
+        motivo:
+          type: string
+          example: "Dolor fuerte en el pecho y dificultad para respirar"
+        estado:
+          type: string
+          enum:
+            - pendiente
+            - en_espera
+            - atendida
+            - cancelada
+          example: "en_espera"
+        prioridad_ia:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 2
+
+    RegisterResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Usuario registrado correctamente"
+        paciente:
+          $ref: "#/components/schemas/Paciente"
+
+    LoginResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Login correcto"
+        access:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        refresh:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        paciente:
+          $ref: "#/components/schemas/Paciente"
+
+    ConsultaResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Consulta creada correctamente"
+        consulta:
+          $ref: "#/components/schemas/Consulta"
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Autenticación requerida."
+
+    ValidationErrorResponse:
+      type: object
+      properties:
+        errors:
+          type: object
+          additionalProperties:
+            type: string
+          example:
+            dni: "La letra del DNI no es correcta."

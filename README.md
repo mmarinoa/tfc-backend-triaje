@@ -20,6 +20,7 @@ El objetivo no es sustituir al personal médico, sino ofrecer una herramienta de
 - **Git / GitHub**
 - **Django REST Framework**
 - **Simple JWT**
+- **OpenAPI**
 - **n8n** *(previsto para la integración con IA)*
 
 ---
@@ -33,7 +34,9 @@ Actualmente el backend permite:
 - Autenticación mediante tokens JWT.
 - Validación de usuarios existentes.
 - Validación de contraseña incorrecta.
-- Relación entre el modelo `Paciente` y el usuario de Django.
+- Validación del formato del DNI.
+- Validación de la letra real del DNI.
+- Relación 1:1 entre el modelo `Paciente` y el usuario de Django.
 - Gestión de pacientes.
 - Gestión de consultas protegidas mediante JWT.
 - Creación de consultas desde Android.
@@ -45,6 +48,7 @@ Actualmente el backend permite:
 - Panel web básico para el médico.
 - Endpoints REST propios para registro, login y consultas.
 - Conversión manual de objetos Django a JSON mediante serializadores propios.
+- Especificación OpenAPI de la API REST.
 - Pruebas en local con SQLite.
 
 ---
@@ -63,7 +67,7 @@ Ejemplo de JSON recibido:
 
     {
       "nombre_completo": "Marta Garcia",
-      "dni": "12345678A",
+      "dni": "12345678Z",
       "email": "marta@test.com",
       "password": "123456"
     }
@@ -75,11 +79,16 @@ Respuesta esperada:
       "paciente": {
         "id": 1,
         "nombre_completo": "Marta Garcia",
-        "dni": "12345678A",
+        "dni": "12345678Z",
         "email": "marta@test.com",
         "fecha_registro": "2026-04-28T09:33:35.753639+00:00"
       }
     }
+
+El DNI se valida en dos pasos:
+
+- Debe tener 8 números y una letra.
+- La letra debe corresponder realmente con el número del DNI.
 
 ---
 
@@ -109,7 +118,7 @@ Respuesta esperada:
       "paciente": {
         "id": 1,
         "nombre_completo": "Marta Garcia",
-        "dni": "12345678A",
+        "dni": "12345678Z",
         "email": "marta@test.com",
         "fecha_registro": "2026-04-28T09:33:35.753639+00:00"
       }
@@ -182,7 +191,7 @@ Respuesta esperada:
         "paciente": {
           "id": 1,
           "nombre_completo": "Marta Garcia",
-          "dni": "12345678A",
+          "dni": "12345678Z",
           "email": "marta@test.com"
         },
         "motivo": "Dolor fuerte en el pecho desde hace una hora",
@@ -289,6 +298,7 @@ El médico tendrá siempre la última palabra y podrá modificar manualmente el 
     ├── db.sqlite3            # Base de datos local de desarrollo
     ├── manage.py             # Comando principal de Django
     ├── requirements.txt      # Dependencias del proyecto
+    ├── openapi.yaml          # Especificación OpenAPI de la API REST
     └── README.md
 
 ---
@@ -307,6 +317,8 @@ Campos principales:
 - `fecha_registro`: fecha en la que se creó el paciente.
 
 El modelo `Paciente` está vinculado al modelo `User` de Django. De esta forma se aprovecha el sistema de autenticación propio de Django para gestionar usuarios y contraseñas, mientras que el modelo `Paciente` guarda los datos específicos del paciente.
+
+Esta decisión permite representar de forma clara una relación 1:1 dentro del modelo de datos: cada usuario está asociado a un único paciente y cada paciente pertenece a un único usuario.
 
 ---
 
@@ -426,6 +438,29 @@ Esto permite mantener siempre las mismas categorías de triaje, aunque se trabaj
 
 ---
 
+## 📄 Especificación OpenAPI
+
+La especificación completa de la API REST se encuentra en el archivo:
+
+    openapi.yaml
+
+Este archivo documenta los endpoints principales del backend, los cuerpos JSON esperados, las respuestas posibles y la autenticación mediante JWT.
+
+Endpoints documentados:
+
+    POST   /api/auth/register/
+    POST   /api/auth/login/
+
+    GET    /api/consultas/
+    POST   /api/consultas/
+    GET    /api/consultas/<id>/
+    PUT    /api/consultas/<id>/
+    DELETE /api/consultas/<id>/
+
+    GET    /api/panel/consultas/
+
+---
+
 ## 🔗 Rutas principales
 
     POST   /api/auth/register/
@@ -450,6 +485,10 @@ Crear y activar el entorno virtual:
 En Windows:
 
     venv\Scripts\activate
+
+Si el entorno virtual está una carpeta por encima del proyecto:
+
+    ..\venv\Scripts\Activate.ps1
 
 Instalar dependencias:
 
@@ -499,6 +538,8 @@ Ejemplo:
 
 Esto permite que el emulador Android se conecte al servidor Django que está ejecutándose en el ordenador.
 
+En la app Android, la URL base del servidor está centralizada en la clase `ApiConfig.java`, para que no sea necesario cambiarla en varias activities si en el futuro se usa otra IP o un servidor desplegado.
+
 ---
 
 ## 🤖 Integración prevista con n8n e IA
@@ -528,7 +569,7 @@ Después, el médico podrá ver la consulta en el panel web y modificar manualme
 - Mejorar el panel médico para mostrar consultas ordenadas por prioridad.
 - Permitir ajustes manuales del orden desde el panel médico.
 - Valorar histórico de cambios de categoría de triaje.
-- Añadir documentación OpenAPI de la API REST.
+- Preparar renovación de tokens JWT.
 - Preparar despliegue futuro con una base de datos más robusta.
 
 ---
