@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -127,3 +128,16 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
 }
+
+# Configuración de integración con n8n.
+# Por defecto se usa el webhook expuesto mediante Cloudflare.
+# Si en otro entorno se quiere usar otra URL, se puede cambiar la variable de entorno N8N_TRIAGE_WEBHOOK_URL.
+
+N8N_TRIAGE_WEBHOOK_URL = os.environ.get(
+    "N8N_TRIAGE_WEBHOOK_URL",
+    "https://friends-wal-stable-repeated.trycloudflare.com/webhook/triaje"
+)
+
+N8N_TRIAGE_TIMEOUT_SECONDS = int(
+    os.environ.get("N8N_TRIAGE_TIMEOUT_SECONDS", "15")
+)
