@@ -10,8 +10,15 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
+from datetime import timedelta
+from django.utils import timezone
 
 from .models import Paciente, Consulta
+from .n8n_client import (
+    N8NClassificationError,
+    construir_observaciones_clasificacion,
+    solicitar_clasificacion_n8n,
+)
 from .serializers import (
     consulta_to_dict,
     paciente_to_dict,
@@ -221,19 +228,82 @@ def consultas_view(request):
                 status=403
             )
 
+        limite_duplicado = timezone.now() - timedelta(minutes=2)
+
+        consulta_duplicada = Consulta.objects.filter(
+            paciente=paciente,
+            motivo__iexact=motivo,
+            estado__in=['pendiente', 'en_espera'],
+            fecha_creacion__gte=limite_duplicado,
+        ).select_related(
+            'paciente',
+            'paciente__user',
+            'categoria',
+        ).order_by('-fecha_creacion').first()
+
+        if consulta_duplicada is not None:
+            return JsonResponse(
+                {
+                    'message': 'Consulta ya registrada recientemente',
+                    'consulta': consulta_to_dict(consulta_duplicada),
+                    'aviso': (
+                        'Ya existe una consulta reciente con el mismo motivo. '
+                        'Se devuelve la consulta existente para evitar duplicados.'
+                    )
+                },
+                status=200
+            )
+        
         consulta = Consulta.objects.create(
             paciente=paciente,
             motivo=motivo,
             estado='pendiente'
         )
 
-        return JsonResponse(
-            {
-                'message': 'Consulta creada correctamente',
-                'consulta': consulta_to_dict(consulta)
-            },
-            status=201
-        )
+        clasificacion_n8n = None
+        aviso_n8n = None
+
+        try:
+            clasificacion_n8n = solicitar_clasificacion_n8n(consulta)
+            observaciones = construir_observaciones_clasificacion(
+                clasificacion_n8n
+            )
+
+            asignar_categoria_a_consulta(
+                consulta=consulta,
+                prioridad_ia=clasificacion_n8n['prioridad_ia'],
+                origen='ia',
+                usuario=None,
+                observaciones=observaciones,
+            )
+
+            consulta.estado = 'en_espera'
+            consulta.observaciones = observaciones
+            consulta.save(update_fields=[
+                'estado',
+                'observaciones',
+                'fecha_actualizacion',
+            ])
+            consulta.refresh_from_db()
+
+        except N8NClassificationError as error:
+            aviso_n8n = str(error)
+
+        except ValueError as error:
+            aviso_n8n = str(error)
+
+        response_data = {
+            'message': 'Consulta creada correctamente',
+            'consulta': consulta_to_dict(consulta),
+        }
+
+        if clasificacion_n8n is not None:
+            response_data['clasificacion_n8n'] = clasificacion_n8n
+
+        if aviso_n8n is not None:
+            response_data['aviso_n8n'] = aviso_n8n
+
+        return JsonResponse(response_data, status=201)
 
     return JsonResponse({'error': 'Método no permitido'}, status=405)
 

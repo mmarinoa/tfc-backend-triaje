@@ -139,5 +139,5 @@ N8N_TRIAGE_WEBHOOK_URL = os.environ.get(
 )
 
 N8N_TRIAGE_TIMEOUT_SECONDS = int(
-    os.environ.get("N8N_TRIAGE_TIMEOUT_SECONDS", "15")
+    os.environ.get("N8N_TRIAGE_TIMEOUT_SECONDS", "35")
 )
