@@ -221,6 +221,7 @@ table tbody tr:hover {
     display: flex;
     gap: 8px;
     align-items: center;
+    flex-wrap: wrap;
 }
 
 .btn {
@@ -268,5 +269,26 @@ table tbody tr:hover {
 
 .form-accion {
     display: inline;
+}
+
+.form-orden {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.input-orden {
+    width: 58px;
+    padding: 7px;
+    border: 1px solid #d5d8dc;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    text-align: center;
+}
+
+.input-orden:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.15);
 }
 

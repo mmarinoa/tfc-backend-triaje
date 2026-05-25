@@ -9,4 +9,5 @@ urlpatterns = [
     path('consultas/<int:consulta_id>/', views.consulta_detail_view, name='consulta_detail'),
     path('panel/consultas/', views.panel_medico_view, name='panel_medico'),
     path('api/panel/consultas/<int:consulta_id>/atender/', views.panel_marcar_atendida_view, name='panel_marcar_atendida'),
+    path('api/panel/consultas/<int:consulta_id>/orden/', views.panel_actualizar_orden_view, name='panel_actualizar_orden'),
 ]

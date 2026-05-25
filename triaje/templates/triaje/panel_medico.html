@@ -86,7 +86,19 @@
                             </td>
 
                             <td class="acciones">
-                                <button class="btn btn-secundario" disabled>Orden</button>
+                                <form method="post" action="{% url 'panel_actualizar_orden' consulta.id %}" class="form-orden">
+                                    {% csrf_token %}
+                                    <input
+                                        type="number"
+                                        name="orden_manual"
+                                        value="{{ consulta.orden_manual }}"
+                                        min="0"
+                                        class="input-orden"
+                                    >
+                                    <button type="submit" class="btn btn-secundario">
+                                        Guardar
+                                    </button>
+                                </form>
 
                                 <form method="post" action="{% url 'panel_marcar_atendida' consulta.id %}" class="form-accion">
                                     {% csrf_token %}

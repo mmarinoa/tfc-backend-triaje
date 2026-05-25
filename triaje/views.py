@@ -478,3 +478,25 @@ def panel_marcar_atendida_view(request, consulta_id):
         ])
 
     return redirect('/api/panel/consultas/')
+
+@require_POST
+def panel_actualizar_orden_view(request, consulta_id):
+    consulta = get_object_or_404(Consulta, id=consulta_id)
+
+    orden_manual = request.POST.get('orden_manual', '0')
+
+    try:
+        orden_manual = int(orden_manual)
+    except (TypeError, ValueError):
+        orden_manual = 0
+
+    if orden_manual < 0:
+        orden_manual = 0
+
+    consulta.orden_manual = orden_manual
+    consulta.save(update_fields=[
+        'orden_manual',
+        'fecha_actualizacion',
+    ])
+
+    return redirect('/api/panel/consultas/')
