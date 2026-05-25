@@ -9,13 +9,18 @@
 <body>
     <div class="contenedor">
         <header>
-            <h1>Panel médico</h1>
-            <p>Listado de pacientes en espera</p>
+            <div>
+                <h1>Panel médico</h1>
+                <p>Listado de pacientes pendientes y en espera de atención</p>
+            </div>
         </header>
 
         <main>
             <section>
-                <h2>Consultas registradas</h2>
+                <div class="section-header">
+                    <h2>Consultas registradas</h2>
+                    <span class="contador">{{ consultas|length }} consultas</span>
+                </div>
 
                 <table>
                     <thead>
@@ -24,27 +29,72 @@
                             <th>Paciente</th>
                             <th>DNI</th>
                             <th>Motivo</th>
+                            <th>Recomendación IA</th>
                             <th>Estado</th>
+                            <th>Categoría</th>
                             <th>Prioridad IA</th>
+                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for consulta in consultas %}
-                        <tr>
+                        <tr class="fila-consulta prioridad-{{ consulta.prioridad_ia|default:'sin-prioridad' }}">
                             <td>{{ consulta.orden_manual }}</td>
-                            <td>{{ consulta.paciente.nombre_completo }}</td>
+
+                            <td>
+                                <strong>{{ consulta.paciente.nombre_completo }}</strong>
+                            </td>
+
                             <td>{{ consulta.paciente.dni }}</td>
-                            <td>{{ consulta.motivo }}</td>
-                            <td>{{ consulta.estado }}</td>
-                            <td class="prioridad-{{ consulta.prioridad_ia|lower }}">
-                                <span class="badge-prioridad">
-                                    {{ consulta.prioridad_ia }}
+
+                            <td class="motivo">
+                                {{ consulta.motivo }}
+                            </td>
+
+                            <td class="observaciones">
+                                {% if consulta.observaciones %}
+                                    {{ consulta.observaciones }}
+                                {% else %}
+                                    <span class="texto-suave">Sin recomendación disponible</span>
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                <span class="badge badge-estado estado-{{ consulta.estado }}">
+                                    {{ consulta.get_estado_display }}
                                 </span>
+                            </td>
+
+                            <td>
+                                {% if consulta.categoria %}
+                                    <span class="badge badge-categoria">
+                                        {{ consulta.categoria.nombre }}
+                                    </span>
+                                {% else %}
+                                    <span class="texto-suave">Pendiente</span>
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {% if consulta.prioridad_ia %}
+                                    <span class="badge-prioridad">
+                                        {{ consulta.prioridad_ia }}
+                                    </span>
+                                {% else %}
+                                    <span class="texto-suave">Pendiente</span>
+                                {% endif %}
+                            </td>
+
+                            <td class="acciones">
+                                <button class="btn btn-secundario" disabled>Orden</button>
+                                <button class="btn btn-completar" disabled>Completar</button>
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="6">No hay consultas registradas.</td>
+                            <td colspan="9" class="sin-consultas">
+                                No hay consultas registradas.
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
