@@ -18,7 +18,27 @@
         <main>
             <section>
                 <div class="section-header">
-                    <h2>Consultas registradas</h2>
+                    <div>
+                        <h2>Consultas registradas</h2>
+                        <p class="descripcion-filtro">
+                            Filtra las consultas según su estado actual.
+                        </p>
+                    </div>
+
+                    <form method="get" class="form-filtro">
+                        <label for="estado">Estado:</label>
+                        <select name="estado" id="estado" class="select-filtro" onchange="this.form.submit()">
+                            {% for estado in estados_filtro %}
+                                <option
+                                    value="{{ estado.valor }}"
+                                    {% if filtro_estado == estado.valor %}selected{% endif %}
+                                >
+                                    {{ estado.texto }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </form>
+
                     <span class="contador">{{ consultas|length }} consultas</span>
                 </div>
 

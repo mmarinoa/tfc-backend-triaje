@@ -452,19 +452,62 @@ def consulta_detail_view(request, consulta_id):
 
 
 def panel_medico_view(request):
+    filtro_estado = request.GET.get('estado', 'activas')
+
     consultas = Consulta.objects.select_related(
         'paciente',
         'paciente__user',
         'categoria'
-    ).filter(
-        estado__in=['pendiente', 'en_espera']
-    ).order_by(
+    )
+
+    if filtro_estado == 'activas':
+        consultas = consultas.filter(estado__in=['pendiente', 'en_espera'])
+    elif filtro_estado in ['pendiente', 'en_espera', 'atendida', 'cancelada']:
+        consultas = consultas.filter(estado=filtro_estado)
+
+    consultas = consultas.order_by(
         'orden_manual',
         'prioridad_ia',
         'fecha_creacion'
     )
 
-    return render(request, 'triaje/panel_medico.html', {'consultas': consultas})
+    estados_filtro = [
+        {
+            'valor': 'activas',
+            'texto': 'Activas',
+        },
+        {
+            'valor': 'pendiente',
+            'texto': 'Pendientes',
+        },
+        {
+            'valor': 'en_espera',
+            'texto': 'En espera',
+        },
+        {
+            'valor': 'atendida',
+            'texto': 'Atendidas',
+        },
+        {
+            'valor': 'cancelada',
+            'texto': 'Canceladas',
+        },
+        {
+            'valor': 'todas',
+            'texto': 'Todas',
+        },
+    ]
+
+    return render(
+        request,
+        'triaje/panel_medico.html',
+        {
+            'consultas': consultas,
+            'filtro_estado': filtro_estado,
+            'estados_filtro': estados_filtro,
+        }
+    )
+
 
 @require_POST
 def panel_marcar_atendida_view(request, consulta_id):

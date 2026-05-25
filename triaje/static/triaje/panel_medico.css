@@ -44,7 +44,9 @@ header p {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 16px;
     margin-bottom: 20px;
+    flex-wrap: wrap;
 }
 
 main h2 {
@@ -292,3 +294,36 @@ table tbody tr:hover {
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.15);
 }
 
+.descripcion-filtro {
+    color: #7f8c8d;
+    font-size: 0.9rem;
+    margin-top: 4px;
+}
+
+.form-filtro {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.form-filtro label {
+    color: #34495e;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.select-filtro {
+    padding: 8px 12px;
+    border: 1px solid #d5d8dc;
+    border-radius: 6px;
+    background-color: #ffffff;
+    color: #2c3e50;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.select-filtro:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.15);
+}
