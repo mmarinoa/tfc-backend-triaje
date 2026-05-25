@@ -87,7 +87,17 @@
 
                             <td class="acciones">
                                 <button class="btn btn-secundario" disabled>Orden</button>
-                                <button class="btn btn-completar" disabled>Completar</button>
+
+                                <form method="post" action="{% url 'panel_marcar_atendida' consulta.id %}" class="form-accion">
+                                    {% csrf_token %}
+                                    <button
+                                        type="submit"
+                                        class="btn btn-completar"
+                                        {% if consulta.estado == 'atendida' or consulta.estado == 'cancelada' %}disabled{% endif %}
+                                    >
+                                        Completar
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                         {% empty %}

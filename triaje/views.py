@@ -5,7 +5,8 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -455,6 +456,8 @@ def panel_medico_view(request):
         'paciente',
         'paciente__user',
         'categoria'
+    ).filter(
+        estado__in=['pendiente', 'en_espera']
     ).order_by(
         'orden_manual',
         'prioridad_ia',
@@ -462,3 +465,16 @@ def panel_medico_view(request):
     )
 
     return render(request, 'triaje/panel_medico.html', {'consultas': consultas})
+
+@require_POST
+def panel_marcar_atendida_view(request, consulta_id):
+    consulta = get_object_or_404(Consulta, id=consulta_id)
+
+    if consulta.estado != 'cancelada':
+        consulta.estado = 'atendida'
+        consulta.save(update_fields=[
+            'estado',
+            'fecha_actualizacion',
+        ])
+
+    return redirect('/api/panel/consultas/')
