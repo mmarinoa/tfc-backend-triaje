@@ -135,7 +135,7 @@ REST_FRAMEWORK = {
 
 N8N_TRIAGE_WEBHOOK_URL = os.environ.get(
     "N8N_TRIAGE_WEBHOOK_URL",
-    "https://friends-wal-stable-repeated.trycloudflare.com/webhook/triaje"
+    "https://characters-receptor-module-applicants.trycloudflare.com/webhook/triaje"
 )
 
 N8N_TRIAGE_TIMEOUT_SECONDS = int(
