@@ -87,11 +87,30 @@
 
                             <td>
                                 {% if consulta.categoria %}
-                                    <span class="badge badge-categoria">
-                                        {{ consulta.categoria.nombre }}
-                                    </span>
+                                    <form
+                                        method="post"
+                                        action="{% url 'panel_actualizar_categoria' consulta.id %}"
+                                        class="form-categoria"
+                                    >
+                                        {% csrf_token %}
+                                        <select
+                                            name="categoria_id"
+                                            class="select-categoria"
+                                            onchange="this.form.submit()"
+                                            {% if consulta.estado == 'atendida' or consulta.estado == 'cancelada' %}disabled{% endif %}
+                                        >
+                                            {% for categoria in categorias_triaje %}
+                                                <option
+                                                    value="{{ categoria.id }}"
+                                                    {% if consulta.categoria.id == categoria.id %}selected{% endif %}
+                                                >
+                                                    {{ categoria.nombre }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </form>
                                 {% else %}
-                                    <span class="texto-suave">Pendiente</span>
+                                    <span class="texto-suave">Sin clasificar</span>
                                 {% endif %}
                             </td>
 

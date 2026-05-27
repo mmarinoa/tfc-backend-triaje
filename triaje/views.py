@@ -14,7 +14,7 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.utils import timezone
 
-from .models import Paciente, Consulta
+from .models import Paciente, Consulta, CategoriaTriage
 from .n8n_client import (
     N8NClassificationError,
     construir_observaciones_clasificacion,
@@ -472,31 +472,15 @@ def panel_medico_view(request):
     )
 
     estados_filtro = [
-        {
-            'valor': 'activas',
-            'texto': 'Activas',
-        },
-        {
-            'valor': 'pendiente',
-            'texto': 'Pendientes',
-        },
-        {
-            'valor': 'en_espera',
-            'texto': 'En espera',
-        },
-        {
-            'valor': 'atendida',
-            'texto': 'Atendidas',
-        },
-        {
-            'valor': 'cancelada',
-            'texto': 'Canceladas',
-        },
-        {
-            'valor': 'todas',
-            'texto': 'Todas',
-        },
+        {'valor': 'activas', 'texto': 'Activas'},
+        {'valor': 'pendiente', 'texto': 'Pendientes'},
+        {'valor': 'en_espera', 'texto': 'En espera'},
+        {'valor': 'atendida', 'texto': 'Atendidas'},
+        {'valor': 'cancelada', 'texto': 'Canceladas'},
+        {'valor': 'todas', 'texto': 'Todas'},
     ]
+
+    categorias_triaje = CategoriaTriage.objects.order_by('prioridad')
 
     return render(
         request,
@@ -505,6 +489,7 @@ def panel_medico_view(request):
             'consultas': consultas,
             'filtro_estado': filtro_estado,
             'estados_filtro': estados_filtro,
+            'categorias_triaje': categorias_triaje,
         }
     )
 
@@ -541,5 +526,31 @@ def panel_actualizar_orden_view(request, consulta_id):
         'orden_manual',
         'fecha_actualizacion',
     ])
+
+    return redirect('/api/panel/consultas/')
+
+@require_POST
+def panel_actualizar_categoria_view(request, consulta_id):
+    consulta = get_object_or_404(Consulta, id=consulta_id)
+
+    categoria_id = request.POST.get('categoria_id')
+
+    if not categoria_id:
+        return redirect('/api/panel/consultas/')
+
+    categoria = get_object_or_404(CategoriaTriage, id=categoria_id)
+
+    try:
+        asignar_categoria_a_consulta(
+            consulta=consulta,
+            prioridad_ia=categoria.prioridad,
+            origen='medico',
+            usuario=request.user if request.user.is_authenticated else None,
+            observaciones='Categoría modificada manualmente desde el panel médico.'
+        )
+    except ValueError:
+        return redirect('/api/panel/consultas/')
+
+    consulta.refresh_from_db()
 
     return redirect('/api/panel/consultas/')
