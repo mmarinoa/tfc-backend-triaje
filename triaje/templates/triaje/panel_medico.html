@@ -73,7 +73,7 @@
 
                             <td class="observaciones">
                                 {% if consulta.observaciones %}
-                                    {{ consulta.observaciones }}
+                                    {{ consulta.observaciones|cut:"Clasificación generada automáticamente por el agente de IA. Recomendación: " }}
                                 {% else %}
                                     <span class="texto-suave">Sin recomendación disponible</span>
                                 {% endif %}
@@ -106,30 +106,42 @@
                             </td>
 
                             <td class="acciones">
-                                <form method="post" action="{% url 'panel_actualizar_orden' consulta.id %}" class="form-orden">
-                                    {% csrf_token %}
-                                    <input
-                                        type="number"
-                                        name="orden_manual"
-                                        value="{{ consulta.orden_manual }}"
-                                        min="0"
-                                        class="input-orden"
-                                    >
-                                    <button type="submit" class="btn btn-secundario">
-                                        Guardar
-                                    </button>
-                                </form>
+                                <div class="acciones-contenido">
+                                    <form method="post" action="{% url 'panel_actualizar_orden' consulta.id %}" class="form-orden">
+                                        {% csrf_token %}
 
-                                <form method="post" action="{% url 'panel_marcar_atendida' consulta.id %}" class="form-accion">
-                                    {% csrf_token %}
-                                    <button
-                                        type="submit"
-                                        class="btn btn-completar"
-                                        {% if consulta.estado == 'atendida' or consulta.estado == 'cancelada' %}disabled{% endif %}
-                                    >
-                                        Completar
-                                    </button>
-                                </form>
+                                        <label class="label-orden" for="orden-{{ consulta.id }}">
+                                            Orden
+                                        </label>
+
+                                        <div class="grupo-orden">
+                                            <input
+                                                id="orden-{{ consulta.id }}"
+                                                type="number"
+                                                name="orden_manual"
+                                                value="{{ consulta.orden_manual }}"
+                                                min="0"
+                                                class="input-orden"
+                                            >
+
+                                            <button type="submit" class="btn btn-guardar">
+                                                Guardar
+                                            </button>
+                                        </div>
+                                    </form>
+
+                                    <form method="post" action="{% url 'panel_marcar_atendida' consulta.id %}" class="form-accion">
+                                        {% csrf_token %}
+                                        <button
+                                            type="submit"
+                                            class="btn btn-completar"
+                                            onclick="return confirm('¿Seguro que quieres marcar esta consulta como atendida?')"
+                                            {% if consulta.estado == 'atendida' or consulta.estado == 'cancelada' %}disabled{% endif %}
+                                        >
+                                            Marcar atendida
+                                        </button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                         {% empty %}
