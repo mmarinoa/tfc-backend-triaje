@@ -11,4 +11,5 @@ urlpatterns = [
     path('api/panel/consultas/<int:consulta_id>/atender/', views.panel_marcar_atendida_view, name='panel_marcar_atendida'),
     path('api/panel/consultas/<int:consulta_id>/orden/', views.panel_actualizar_orden_view, name='panel_actualizar_orden'),
     path('api/panel/consultas/<int:consulta_id>/categoria/', views.panel_actualizar_categoria_view, name='panel_actualizar_categoria'),
+    path('api/panel/consultas/version/', views.panel_consultas_version_view, name='panel_consultas_version'),
 ]

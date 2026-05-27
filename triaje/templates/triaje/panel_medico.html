@@ -175,5 +175,59 @@
             </section>
         </main>
     </div>
+    
+    <script>
+        const PANEL_VERSION_URL = "{% url 'panel_consultas_version' %}";
+        const FILTRO_ESTADO_ACTUAL = "{{ filtro_estado }}";
+        const INTERVALO_ACTUALIZACION_MS = 8000;
+
+        let versionActual = null;
+        let comprobandoCambios = false;
+
+        async function obtenerVersionPanel() {
+            const url = `${PANEL_VERSION_URL}?estado=${encodeURIComponent(FILTRO_ESTADO_ACTUAL)}`;
+            const respuesta = await fetch(url, {
+                method: "GET",
+                headers: {
+                    "Accept": "application/json"
+                }
+            });
+
+            if (!respuesta.ok) {
+                throw new Error("No se pudo comprobar la versión del panel.");
+            }
+
+            return await respuesta.json();
+        }
+
+        async function comprobarCambiosPanel() {
+            if (comprobandoCambios) {
+                return;
+            }
+
+            comprobandoCambios = true;
+
+            try {
+                const datos = await obtenerVersionPanel();
+
+                if (versionActual === null) {
+                    versionActual = datos.version;
+                    return;
+                }
+
+                if (datos.version !== versionActual) {
+                    window.location.reload();
+                }
+            } catch (error) {
+                console.warn(error.message);
+            } finally {
+                comprobandoCambios = false;
+            }
+        }
+
+        comprobarCambiosPanel();
+        setInterval(comprobarCambiosPanel, INTERVALO_ACTUALIZACION_MS);
+    </script>
+
 </body>
 </html>

@@ -4,6 +4,7 @@ from datetime import timedelta
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.db import transaction
+from django.db.models import Max
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
@@ -493,6 +494,35 @@ def panel_medico_view(request):
         }
     )
 
+def panel_consultas_version_view(request):
+    filtro_estado = request.GET.get('estado', 'activas')
+
+    consultas = Consulta.objects.all()
+
+    if filtro_estado == 'activas':
+        consultas = consultas.filter(estado__in=['pendiente', 'en_espera'])
+    elif filtro_estado in ['pendiente', 'en_espera', 'atendida', 'cancelada']:
+        consultas = consultas.filter(estado=filtro_estado)
+
+    resumen = consultas.aggregate(
+        ultima_actualizacion=Max('fecha_actualizacion')
+    )
+
+    ultima_actualizacion = resumen['ultima_actualizacion']
+    total = consultas.count()
+
+    if ultima_actualizacion is None:
+        version = f"empty-{total}"
+    else:
+        version = f"{ultima_actualizacion.isoformat()}-{total}"
+
+    return JsonResponse(
+        {
+            'version': version,
+            'total': total,
+        },
+        status=200
+    )
 
 @require_POST
 def panel_marcar_atendida_view(request, consulta_id):
