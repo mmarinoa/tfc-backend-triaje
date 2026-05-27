@@ -147,14 +147,11 @@ def solicitar_clasificacion_n8n(consulta) -> dict:
 
 def construir_observaciones_clasificacion(clasificacion: dict) -> str:
     """
-    Construye el texto de observaciones que se guardará en el histórico.
+    Devuelve únicamente la recomendación generada por el agente de IA.
     """
     recomendacion = clasificacion.get("recomendacion", "").strip()
 
     if recomendacion:
-        return (
-            "Clasificación generada automáticamente por el agente de IA. "
-            f"Recomendación: {recomendacion}"
-        )
+        return recomendacion
 
-    return "Clasificación generada automáticamente por el agente de IA."
+    return "Sin recomendación generada por el agente de IA."
