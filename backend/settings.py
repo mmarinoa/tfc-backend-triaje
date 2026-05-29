@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'triaje',
+    'drf_spectacular',
 ]
 
 MIDDLEWARE = [
@@ -127,6 +128,18 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'API Sistema de Triaje Inteligente',
+    'DESCRIPTION': (
+        'Documentación de la API REST del sistema de triaje inteligente. '
+        'Incluye autenticación, gestión de pacientes, consultas, categorías '
+        'de triaje e integración con clasificación automática mediante IA.'
+    ),
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
 }
 
 # Configuración de integración con n8n.

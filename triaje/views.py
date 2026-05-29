@@ -14,6 +14,10 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.utils import timezone
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiResponse, OpenApiParameter, inline_serializer, extend_schema_view
+from rest_framework import serializers
 
 from .models import Paciente, Consulta, CategoriaTriage
 from .n8n_client import (
@@ -72,6 +76,45 @@ def get_authenticated_user(request):
 
     return user, None
 
+@extend_schema(
+    tags=["Autenticación"],
+    summary="Registrar paciente",
+    description="Crea un usuario de Django y un paciente asociado.",
+    auth=[],
+    request=inline_serializer(
+        name="RegistroPacienteRequest",
+        fields={
+            "nombre_completo": serializers.CharField(),
+            "dni": serializers.CharField(),
+            "email": serializers.EmailField(),
+            "password": serializers.CharField(),
+        },
+    ),
+    responses={
+        201: inline_serializer(
+            name="RegistroPacienteResponse",
+            fields={
+                "message": serializers.CharField(),
+                "paciente": serializers.DictField(),
+            },
+        ),
+        400: OpenApiResponse(description="Datos inválidos."),
+    },
+    examples=[
+        OpenApiExample(
+            "Ejemplo de registro",
+            value={
+                "nombre_completo": "Marta Garcia",
+                "dni": "12345678A",
+                "email": "marta@test.com",
+                "password": "123456",
+            },
+            request_only=True,
+        )
+    ],
+)
+@api_view(["POST"])
+@permission_classes([AllowAny])
 
 @csrf_exempt
 def register_view(request):
@@ -116,6 +159,47 @@ def register_view(request):
         status=201
     )
 
+@extend_schema(
+    tags=["Autenticación"],
+    summary="Iniciar sesión",
+    description=(
+        "Autentica a un paciente mediante email y contraseña. "
+        "Si las credenciales son correctas, devuelve los tokens JWT y los datos del paciente."
+    ),
+    auth=[],
+    request=inline_serializer(
+        name="LoginRequest",
+        fields={
+            "email": serializers.EmailField(),
+            "password": serializers.CharField(),
+        },
+    ),
+    responses={
+        200: inline_serializer(
+            name="LoginResponse",
+            fields={
+                "message": serializers.CharField(),
+                "access": serializers.CharField(),
+                "refresh": serializers.CharField(),
+                "paciente": serializers.DictField(),
+            },
+        ),
+        400: OpenApiResponse(description="JSON inválido o datos incompletos."),
+        401: OpenApiResponse(description="Credenciales incorrectas."),
+    },
+    examples=[
+        OpenApiExample(
+            "Ejemplo de login",
+            value={
+                "email": "marta@test.com",
+                "password": "123456",
+            },
+            request_only=True,
+        )
+    ],
+)
+@api_view(["POST"])
+@permission_classes([AllowAny])
 
 @csrf_exempt
 def login_view(request):
@@ -175,6 +259,95 @@ def login_view(request):
         status=200
     )
 
+@extend_schema_view(
+    get=extend_schema(
+        tags=["Consultas"],
+        summary="Listar consultas",
+        description=(
+            "Devuelve las consultas del paciente autenticado. "
+            "Permite filtrar por estado mediante query param."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="estado",
+                description="Filtra las consultas por estado.",
+                required=False,
+                type=str,
+                location=OpenApiParameter.QUERY,
+                examples=[
+                    OpenApiExample("Pendiente", value="pendiente"),
+                    OpenApiExample("En espera", value="en_espera"),
+                    OpenApiExample("Atendida", value="atendida"),
+                    OpenApiExample("Cancelada", value="cancelada"),
+                ],
+            )
+        ],
+        responses={
+            200: inline_serializer(
+                name="ConsultaListResponse",
+                many=True,
+                fields={
+                    "id": serializers.IntegerField(),
+                    "paciente": serializers.DictField(),
+                    "motivo": serializers.CharField(),
+                    "estado": serializers.CharField(),
+                    "categoria": serializers.CharField(allow_blank=True, required=False),
+                    "prioridad_ia": serializers.IntegerField(required=False, allow_null=True),
+                    "observaciones": serializers.CharField(required=False, allow_blank=True),
+                    "orden_manual": serializers.IntegerField(),
+                    "fecha_creacion": serializers.DateTimeField(),
+                    "fecha_actualizacion": serializers.DateTimeField(),
+                },
+            ),
+            401: OpenApiResponse(description="Autenticación requerida."),
+        },
+    ),
+    post=extend_schema(
+        tags=["Consultas"],
+        summary="Crear consulta",
+        description=(
+            "Crea una nueva consulta para el paciente autenticado. "
+            "Después de guardarla, el backend puede enviarla a n8n para obtener "
+            "una clasificación automática mediante IA."
+        ),
+        request=inline_serializer(
+            name="ConsultaCreateRequest",
+            fields={
+                "motivo": serializers.CharField(),
+            },
+        ),
+        responses={
+            201: inline_serializer(
+                name="ConsultaCreateResponse",
+                fields={
+                    "id": serializers.IntegerField(),
+                    "paciente": serializers.DictField(),
+                    "motivo": serializers.CharField(),
+                    "estado": serializers.CharField(),
+                    "categoria": serializers.CharField(allow_blank=True, required=False),
+                    "prioridad_ia": serializers.IntegerField(required=False, allow_null=True),
+                    "observaciones": serializers.CharField(required=False, allow_blank=True),
+                    "orden_manual": serializers.IntegerField(),
+                    "fecha_creacion": serializers.DateTimeField(),
+                    "fecha_actualizacion": serializers.DateTimeField(),
+                },
+            ),
+            400: OpenApiResponse(description="Datos inválidos."),
+            401: OpenApiResponse(description="Autenticación requerida."),
+        },
+        examples=[
+            OpenApiExample(
+                "Ejemplo de creación de consulta",
+                value={
+                    "motivo": "Me duele el tobillo y se me está hinchando bastante"
+                },
+                request_only=True,
+            )
+        ],
+    ),
+)
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
 
 @csrf_exempt
 def consultas_view(request):
@@ -309,6 +482,124 @@ def consultas_view(request):
 
     return JsonResponse({'error': 'Método no permitido'}, status=405)
 
+@extend_schema_view(
+    get=extend_schema(
+        tags=["Consultas"],
+        summary="Obtener detalle de consulta",
+        description="Devuelve el detalle de una consulta concreta del paciente autenticado.",
+        parameters=[
+            OpenApiParameter(
+                name="consulta_id",
+                description="Identificador de la consulta.",
+                required=True,
+                type=int,
+                location=OpenApiParameter.PATH,
+            )
+        ],
+        responses={
+            200: inline_serializer(
+                name="ConsultaDetailResponse",
+                fields={
+                    "id": serializers.IntegerField(),
+                    "paciente": serializers.DictField(),
+                    "motivo": serializers.CharField(),
+                    "estado": serializers.CharField(),
+                    "categoria": serializers.CharField(allow_blank=True, required=False),
+                    "prioridad_ia": serializers.IntegerField(required=False, allow_null=True),
+                    "observaciones": serializers.CharField(required=False, allow_blank=True),
+                    "orden_manual": serializers.IntegerField(),
+                    "fecha_creacion": serializers.DateTimeField(),
+                    "fecha_actualizacion": serializers.DateTimeField(),
+                },
+            ),
+            401: OpenApiResponse(description="Autenticación requerida."),
+            404: OpenApiResponse(description="Consulta no encontrada."),
+        },
+    ),
+    put=extend_schema(
+        tags=["Consultas"],
+        summary="Actualizar motivo de consulta",
+        description=(
+            "Actualiza el motivo de una consulta del paciente autenticado. "
+            "Tras modificar el motivo, el backend puede volver a enviarla a n8n "
+            "para recalcular la prioridad IA y la categoría de triaje."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="consulta_id",
+                description="Identificador de la consulta.",
+                required=True,
+                type=int,
+                location=OpenApiParameter.PATH,
+            )
+        ],
+        request=inline_serializer(
+            name="ConsultaUpdateRequest",
+            fields={
+                "motivo": serializers.CharField(),
+            },
+        ),
+        responses={
+            200: inline_serializer(
+                name="ConsultaUpdateResponse",
+                fields={
+                    "id": serializers.IntegerField(),
+                    "paciente": serializers.DictField(),
+                    "motivo": serializers.CharField(),
+                    "estado": serializers.CharField(),
+                    "categoria": serializers.CharField(allow_blank=True, required=False),
+                    "prioridad_ia": serializers.IntegerField(required=False, allow_null=True),
+                    "observaciones": serializers.CharField(required=False, allow_blank=True),
+                    "orden_manual": serializers.IntegerField(),
+                    "fecha_creacion": serializers.DateTimeField(),
+                    "fecha_actualizacion": serializers.DateTimeField(),
+                },
+            ),
+            400: OpenApiResponse(description="Datos inválidos."),
+            401: OpenApiResponse(description="Autenticación requerida."),
+            404: OpenApiResponse(description="Consulta no encontrada."),
+        },
+        examples=[
+            OpenApiExample(
+                "Ejemplo de actualización de consulta",
+                value={
+                    "motivo": "El dolor ha empeorado y ahora tengo inflamación"
+                },
+                request_only=True,
+            )
+        ],
+    ),
+    delete=extend_schema(
+        tags=["Consultas"],
+        summary="Cancelar consulta",
+        description=(
+            "Cancela una consulta del paciente autenticado. "
+            "La consulta no se elimina físicamente, sino que cambia su estado a cancelada."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="consulta_id",
+                description="Identificador de la consulta.",
+                required=True,
+                type=int,
+                location=OpenApiParameter.PATH,
+            )
+        ],
+        responses={
+            200: inline_serializer(
+                name="ConsultaCancelResponse",
+                fields={
+                    "message": serializers.CharField(),
+                    "consulta": serializers.DictField(),
+                },
+            ),
+            401: OpenApiResponse(description="Autenticación requerida."),
+            404: OpenApiResponse(description="Consulta no encontrada."),
+        },
+    ),
+)
+@api_view(["GET", "PUT", "DELETE"])
+@permission_classes([IsAuthenticated])
 
 @csrf_exempt
 def consulta_detail_view(request, consulta_id):
